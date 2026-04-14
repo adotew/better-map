@@ -96,6 +96,9 @@ function App() {
   const [isDirty, setIsDirty] = useState(false);
   const [externalContent, setExternalContent] = useState<string | null>(null);
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
+  const [showEditor, setShowEditor] = useState(
+    () => localStorage.getItem("showEditor") !== "false"
+  );
   const [showMinimap, setShowMinimap] = useState(
     () => localStorage.getItem("minimap") !== "false"
   );
@@ -105,6 +108,7 @@ function App() {
   const handleOpenRef = useRef<(() => Promise<void>) | null>(null);
   const handleSaveRef = useRef<(() => Promise<void>) | null>(null);
   const openFilePathRef = useRef<((path: string) => Promise<void>) | null>(null);
+  const toggleEditorRef = useRef<(() => void) | null>(null);
 
   const { nodes, edges } = useMemo(() => {
     const tree = parseMindmap(source);
@@ -137,6 +141,14 @@ function App() {
     setShowMinimap((prev) => {
       const next = !prev;
       localStorage.setItem("minimap", String(next));
+      return next;
+    });
+  }, []);
+
+  const toggleEditor = useCallback(() => {
+    setShowEditor((prev) => {
+      const next = !prev;
+      localStorage.setItem("showEditor", String(next));
       return next;
     });
   }, []);
@@ -179,6 +191,9 @@ function App() {
       } else if (e.key === "o") {
         e.preventDefault();
         handleOpen();
+      } else if (e.key === "e") {
+        e.preventDefault();
+        toggleEditor();
       } else if (e.key === "m") {
         e.preventDefault();
         toggleMinimap();
@@ -310,13 +325,15 @@ function App() {
     handleOpenRef.current = handleOpen;
     handleSaveRef.current = handleSave;
     openFilePathRef.current = openFilePath;
-  }, [handleOpen, handleSave, openFilePath]);
+    toggleEditorRef.current = toggleEditor;
+  }, [handleOpen, handleSave, openFilePath, toggleEditor]);
 
   useEffect(() => {
     let cancelled = false;
     let appMenu: Menu | null = null;
     let fileSubmenu: Submenu | null = null;
     let recentSubmenu: Submenu | null = null;
+    let viewSubmenu: Submenu | null = null;
 
     async function setupNativeMenu() {
       recentSubmenu = await Submenu.new({
@@ -348,9 +365,24 @@ function App() {
         ],
       });
 
+      viewSubmenu = await Submenu.new({
+        id: "view",
+        text: "View",
+        items: [
+          {
+            id: "view-toggle-editor",
+            text: "Toggle Editor",
+            accelerator: "CmdOrCtrl+E",
+            action: () => {
+              toggleEditorRef.current?.();
+            },
+          },
+        ],
+      });
+
       appMenu = await Menu.new({
         id: "better-map-menu",
-        items: [fileSubmenu],
+        items: [fileSubmenu, viewSubmenu],
       });
       await appMenu.setAsAppMenu();
 
@@ -373,6 +405,7 @@ function App() {
       void appMenu?.close();
       void fileSubmenu?.close();
       void recentSubmenu?.close();
+      void viewSubmenu?.close();
     };
   }, []);
 
@@ -391,7 +424,8 @@ function App() {
       className="flex h-screen w-screen"
       style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}
     >
-      <div className="flex w-1/2 flex-col p-4">
+      {showEditor && (
+        <div className="flex w-1/2 flex-col p-4">
         {/* Toolbar */}
         <div className="mb-2 flex items-center gap-2">
           {filePath && (
@@ -443,11 +477,12 @@ function App() {
           onChange={(e) => updateSource(e.target.value)}
           spellCheck={false}
         />
-      </div>
+        </div>
+      )}
 
       {/* Canvas */}
       <div
-        className="w-1/2 border-l"
+        className={`flex-1 ${showEditor ? "border-l" : ""}`}
         style={{ borderColor: "var(--border)" }}
       >
         <ReactFlow
