@@ -10,6 +10,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { Menu, Submenu } from "@tauri-apps/api/menu";
 import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { parseMindmap } from "./lib/parser";
@@ -57,6 +58,37 @@ function minimapNodeColor(node: Node): string {
   return "var(--node-default-border)";
 }
 
+async function syncRecentSubmenu(
+  submenu: Submenu,
+  recentFiles: RecentFile[],
+  openRecent: (path: string) => Promise<void>
+) {
+  let currentItems = await submenu.items();
+  while (currentItems.length > 0) {
+    await submenu.removeAt(0);
+    currentItems = await submenu.items();
+  }
+
+  if (recentFiles.length === 0) {
+    await submenu.append({
+      id: "file-recent-empty",
+      text: "No recent files",
+      enabled: false,
+    });
+    return;
+  }
+
+  await submenu.append(
+    recentFiles.map((rf) => ({
+      id: `file-recent-${rf.id ?? rf.path}`,
+      text: rf.title,
+      action: () => {
+        void openRecent(rf.path);
+      },
+    }))
+  );
+}
+
 function App() {
   const theme = useTheme();
   const [source, setSource] = useState(EXAMPLE);
@@ -64,12 +96,15 @@ function App() {
   const [isDirty, setIsDirty] = useState(false);
   const [externalContent, setExternalContent] = useState<string | null>(null);
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
-  const [showRecent, setShowRecent] = useState(false);
   const [showMinimap, setShowMinimap] = useState(
     () => localStorage.getItem("minimap") !== "false"
   );
   const dirtyRef = useRef(false);
   const unlistenRef = useRef<UnlistenFn | null>(null);
+  const menuRecentSubmenuRef = useRef<Submenu | null>(null);
+  const handleOpenRef = useRef<(() => Promise<void>) | null>(null);
+  const handleSaveRef = useRef<(() => Promise<void>) | null>(null);
+  const openFilePathRef = useRef<((path: string) => Promise<void>) | null>(null);
 
   const { nodes, edges } = useMemo(() => {
     const tree = parseMindmap(source);
@@ -271,9 +306,85 @@ function App() {
     await refreshRecent();
   }, [source, markClean, refreshRecent]);
 
-  const btnClass =
-    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors" +
-    " bg-[var(--btn-bg)] hover:bg-[var(--btn-hover)] text-[var(--text-primary)]";
+  useEffect(() => {
+    handleOpenRef.current = handleOpen;
+    handleSaveRef.current = handleSave;
+    openFilePathRef.current = openFilePath;
+  }, [handleOpen, handleSave, openFilePath]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let appMenu: Menu | null = null;
+    let fileSubmenu: Submenu | null = null;
+    let recentSubmenu: Submenu | null = null;
+
+    async function setupNativeMenu() {
+      recentSubmenu = await Submenu.new({
+        id: "file-recent",
+        text: "Recent",
+      });
+
+      fileSubmenu = await Submenu.new({
+        id: "file",
+        text: "File",
+        items: [
+          {
+            id: "file-open",
+            text: "Open",
+            accelerator: "CmdOrCtrl+O",
+            action: () => {
+              void handleOpenRef.current?.();
+            },
+          },
+          {
+            id: "file-save",
+            text: "Save",
+            accelerator: "CmdOrCtrl+S",
+            action: () => {
+              void handleSaveRef.current?.();
+            },
+          },
+          recentSubmenu,
+        ],
+      });
+
+      appMenu = await Menu.new({
+        id: "better-map-menu",
+        items: [fileSubmenu],
+      });
+      await appMenu.setAsAppMenu();
+
+      if (cancelled) return;
+
+      menuRecentSubmenuRef.current = recentSubmenu;
+      const openRecent = openFilePathRef.current;
+      if (openRecent) {
+        await syncRecentSubmenu(recentSubmenu, recentFiles, openRecent);
+      }
+    }
+
+    setupNativeMenu().catch((error) => {
+      console.error("Failed to create native File menu", error);
+    });
+
+    return () => {
+      cancelled = true;
+      menuRecentSubmenuRef.current = null;
+      void appMenu?.close();
+      void fileSubmenu?.close();
+      void recentSubmenu?.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    const recentSubmenu = menuRecentSubmenuRef.current;
+    const openRecent = openFilePathRef.current;
+    if (!recentSubmenu || !openRecent) return;
+
+    syncRecentSubmenu(recentSubmenu, recentFiles, openRecent).catch((error) => {
+      console.error("Failed to update Recent submenu", error);
+    });
+  }, [recentFiles]);
 
   return (
     <div
@@ -283,55 +394,6 @@ function App() {
       <div className="flex w-1/2 flex-col p-4">
         {/* Toolbar */}
         <div className="mb-2 flex items-center gap-2">
-          <button onClick={handleOpen} className={btnClass}>Open</button>
-          <button onClick={handleSave} className={btnClass}>Save</button>
-          <div className="relative">
-            <button
-              onClick={() => setShowRecent((v) => !v)}
-              className={btnClass}
-            >
-              Recent
-            </button>
-            {showRecent && (
-              <div
-                className="absolute top-full left-0 z-50 mt-1 w-64 rounded-lg border py-1 shadow-lg"
-                style={{
-                  background: "var(--bg-pane)",
-                  borderColor: "var(--border)",
-                }}
-              >
-                {recentFiles.length === 0 ? (
-                  <div
-                    className="px-3 py-2 text-xs"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    No recent files
-                  </div>
-                ) : (
-                  recentFiles.map((rf) => (
-                    <button
-                      key={rf.id}
-                      onClick={async () => {
-                        setShowRecent(false);
-                        await openFilePath(rf.path);
-                      }}
-                      className="block w-full truncate px-3 py-1.5 text-left text-sm hover:bg-[var(--btn-bg)]"
-                      style={{ color: "var(--text-primary)" }}
-                      title={rf.path}
-                    >
-                      {rf.title}
-                      <span
-                        className="ml-2 text-xs"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        {rf.path}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
           {filePath && (
             <span
               className="truncate text-xs"
