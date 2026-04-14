@@ -1,50 +1,78 @@
 import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+import { parseMindmap, type MindmapNode } from "./lib/parser";
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+const EXAMPLE = `---
+title: My Project
+created: 2026-04-14
+theme: default
+---
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+My Project
+  Frontend
+    React !
+    TypeScript
+    ? GraphQL or REST
+  Backend [color: teal]
+    Node.js
+    PostgreSQL
+  Deployment
+    Docker
+    CI/CD Pipeline`;
+
+const COLOR_CLASSES: Record<string, string> = {
+  teal: "text-teal-600 dark:text-teal-400",
+  purple: "text-purple-600 dark:text-purple-400",
+  coral: "text-red-400 dark:text-red-300",
+  amber: "text-amber-500 dark:text-amber-400",
+};
+
+function TreeView({ node }: { node: MindmapNode }) {
+  const colorClass = node.color ? COLOR_CLASSES[node.color] ?? "" : "";
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <li className={`py-0.5 ${colorClass}`}>
+      <span className={node.highlight ? "font-bold" : ""}>
+        {node.decision && (
+          <span className="font-bold text-purple-500">? </span>
+        )}
+        {node.label || "(empty)"}
+        {node.highlight && (
+          <span className="ml-1 font-bold text-orange-500">!</span>
+        )}
+      </span>
+      {node.children.length > 0 && (
+        <ul className="ml-5 mt-0.5 list-none">
+          {node.children.map((child, i) => (
+            <TreeView key={i} node={child} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+function App() {
+  const [source, setSource] = useState(EXAMPLE);
+  const tree = parseMindmap(source);
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
+  return (
+    <div className="flex h-screen w-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+      <div className="w-1/2 p-4">
+        <textarea
+          className="h-full w-full resize-none rounded-lg border border-gray-300 bg-white p-4 font-mono text-sm leading-relaxed outline-none focus:border-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:border-gray-500"
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          spellCheck={false}
+          style={{ tabSize: 2 }}
         />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+      </div>
+      <div className="w-1/2 overflow-y-auto border-l border-gray-200 p-6 dark:border-gray-800">
+        <ul className="list-none">
+          <TreeView node={tree} />
+        </ul>
+      </div>
+    </div>
   );
 }
 
