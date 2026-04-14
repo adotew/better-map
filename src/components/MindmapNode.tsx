@@ -1,56 +1,77 @@
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import type { MindmapNodeData } from "../lib/layout";
 
-const COLOR_BG: Record<string, string> = {
-  teal: "bg-teal-500 text-white",
-  purple: "bg-purple-500 text-white",
-  coral: "bg-red-400 text-white",
-  amber: "bg-amber-400 text-gray-900",
+// Named color overrides (apply as inline background over the default node style)
+const COLOR_INLINE: Record<string, { background: string; color: string }> = {
+  teal:   { background: "#14b8a6", color: "#ffffff" },
+  purple: { background: "#a855f7", color: "#ffffff" },
+  coral:  { background: "#f87171", color: "#ffffff" },
+  amber:  { background: "#f59e0b", color: "#111827" },
 };
 
-type MindmapNodeType = Node<MindmapNodeData, "mindmap">;
-type HighlightNodeType = Node<MindmapNodeData, "mindmapHighlight">;
-type DecisionNodeType = Node<MindmapNodeData, "mindmapDecision">;
+type MindmapNodeType     = Node<MindmapNodeData, "mindmap">;
+type HighlightNodeType   = Node<MindmapNodeData, "mindmapHighlight">;
+type DecisionNodeType    = Node<MindmapNodeData, "mindmapDecision">;
 
 export function MindmapDefaultNode({ data }: NodeProps<MindmapNodeType>) {
-  const colorClass = data.color
-    ? COLOR_BG[data.color] ?? "bg-white dark:bg-gray-800"
-    : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100";
+  const override = data.color ? COLOR_INLINE[data.color] : null;
+
+  const style = override
+    ? { background: override.background, color: override.color, borderColor: "transparent" }
+    : {
+        background: "var(--node-default-bg)",
+        color: "var(--node-default-text)",
+        borderColor: "var(--node-default-border)",
+      };
 
   return (
     <div
-      className={`rounded-lg border border-gray-300 px-4 py-2 text-sm shadow-sm dark:border-gray-600 ${colorClass}`}
+      className="rounded-lg border px-4 py-2 text-sm shadow-sm"
+      style={style}
     >
-      <Handle type="target" position={Position.Left} className="!bg-gray-400" />
+      <Handle type="target" position={Position.Left} style={{ background: "var(--node-default-border)" }} />
       <span>{data.label}</span>
-      <Handle type="source" position={Position.Right} className="!bg-gray-400" />
+      <Handle type="source" position={Position.Right} style={{ background: "var(--node-default-border)" }} />
     </div>
   );
 }
 
 export function MindmapHighlightNode({ data }: NodeProps<HighlightNodeType>) {
-  const colorClass = data.color
-    ? COLOR_BG[data.color] ?? "bg-blue-500 text-white"
-    : "bg-blue-500 text-white";
+  const override = data.color ? COLOR_INLINE[data.color] : null;
+
+  const style = override
+    ? { background: override.background, color: override.color }
+    : {
+        background: "var(--node-highlight-bg)",
+        color: "var(--node-highlight-text)",
+      };
 
   return (
     <div
-      className={`rounded-lg px-4 py-2 text-sm font-bold shadow-md ${colorClass}`}
+      className="rounded-lg px-4 py-2 text-sm font-bold shadow-md"
+      style={style}
     >
-      <Handle type="target" position={Position.Left} className="!bg-white" />
+      <Handle type="target" position={Position.Left} style={{ background: "rgba(255,255,255,0.6)" }} />
       <span>{data.label}</span>
-      <Handle type="source" position={Position.Right} className="!bg-white" />
+      <Handle type="source" position={Position.Right} style={{ background: "rgba(255,255,255,0.6)" }} />
     </div>
   );
 }
 
 export function MindmapDecisionNode({ data }: NodeProps<DecisionNodeType>) {
   return (
-    <div className="rounded-lg border-2 border-dashed border-amber-400 bg-amber-50 px-4 py-2 text-sm text-amber-900 shadow-sm dark:bg-amber-900/30 dark:text-amber-200">
-      <Handle type="target" position={Position.Left} className="!bg-amber-400" />
+    <div
+      className="rounded-lg border-2 border-dashed px-4 py-2 text-sm shadow-sm"
+      style={{
+        background: "var(--node-decision-bg)",
+        color: "var(--node-decision-text)",
+        borderColor: "var(--node-decision-border)",
+      }}
+    >
+      <Handle type="target" position={Position.Left} style={{ background: "var(--node-decision-border)" }} />
       <span className="mr-1 font-bold">?</span>
       <span>{data.label}</span>
-      <Handle type="source" position={Position.Right} className="!bg-amber-400" />
+      <Handle type="source" position={Position.Right} style={{ background: "var(--node-decision-border)" }} />
     </div>
   );
 }

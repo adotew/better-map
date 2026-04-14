@@ -3,7 +3,9 @@ import {
   ReactFlow,
   Background,
   Controls,
+  MiniMap,
   type NodeTypes,
+  type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { invoke } from "@tauri-apps/api/core";
@@ -13,6 +15,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { parseMindmap } from "./lib/parser";
 import { layoutTree } from "./lib/layout";
 import { addRecentFile, getRecentFiles, type RecentFile } from "./lib/db";
+import { useTheme } from "./context/theme";
 import {
   MindmapDefaultNode,
   MindmapHighlightNode,
@@ -48,13 +51,23 @@ function filenameFromPath(path: string): string {
   return path.split("/").pop()?.split("\\").pop() ?? path;
 }
 
+function minimapNodeColor(node: Node): string {
+  if (node.type === "mindmapHighlight") return "var(--node-highlight-bg)";
+  if (node.type === "mindmapDecision") return "var(--node-decision-border)";
+  return "var(--node-default-border)";
+}
+
 function App() {
+  const theme = useTheme();
   const [source, setSource] = useState(EXAMPLE);
   const [filePath, setFilePath] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [externalContent, setExternalContent] = useState<string | null>(null);
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [showRecent, setShowRecent] = useState(false);
+  const [showMinimap, setShowMinimap] = useState(
+    () => localStorage.getItem("minimap") !== "false"
+  );
   const dirtyRef = useRef(false);
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
@@ -83,6 +96,14 @@ function App() {
 
   const refreshRecent = useCallback(async () => {
     setRecentFiles(await getRecentFiles(5));
+  }, []);
+
+  const toggleMinimap = useCallback(() => {
+    setShowMinimap((prev) => {
+      const next = !prev;
+      localStorage.setItem("minimap", String(next));
+      return next;
+    });
   }, []);
 
   // Load recent files on mount
@@ -123,6 +144,9 @@ function App() {
       } else if (e.key === "o") {
         e.preventDefault();
         handleOpen();
+      } else if (e.key === "m") {
+        e.preventDefault();
+        toggleMinimap();
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -247,33 +271,40 @@ function App() {
     await refreshRecent();
   }, [source, markClean, refreshRecent]);
 
+  const btnClass =
+    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors" +
+    " bg-[var(--btn-bg)] hover:bg-[var(--btn-hover)] text-[var(--text-primary)]";
+
   return (
-    <div className="flex h-screen w-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+    <div
+      className="flex h-screen w-screen"
+      style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}
+    >
       <div className="flex w-1/2 flex-col p-4">
+        {/* Toolbar */}
         <div className="mb-2 flex items-center gap-2">
-          <button
-            onClick={handleOpen}
-            className="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
-          >
-            Open
-          </button>
-          <button
-            onClick={handleSave}
-            className="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
-          >
-            Save
-          </button>
+          <button onClick={handleOpen} className={btnClass}>Open</button>
+          <button onClick={handleSave} className={btnClass}>Save</button>
           <div className="relative">
             <button
               onClick={() => setShowRecent((v) => !v)}
-              className="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+              className={btnClass}
             >
               Recent
             </button>
             {showRecent && (
-              <div className="absolute top-full left-0 z-50 mt-1 w-64 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+              <div
+                className="absolute top-full left-0 z-50 mt-1 w-64 rounded-lg border py-1 shadow-lg"
+                style={{
+                  background: "var(--bg-pane)",
+                  borderColor: "var(--border)",
+                }}
+              >
                 {recentFiles.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-gray-400">
+                  <div
+                    className="px-3 py-2 text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
                     No recent files
                   </div>
                 ) : (
@@ -284,11 +315,15 @@ function App() {
                         setShowRecent(false);
                         await openFilePath(rf.path);
                       }}
-                      className="block w-full truncate px-3 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                      className="block w-full truncate px-3 py-1.5 text-left text-sm hover:bg-[var(--btn-bg)]"
+                      style={{ color: "var(--text-primary)" }}
                       title={rf.path}
                     >
                       {rf.title}
-                      <span className="ml-2 text-xs text-gray-400">
+                      <span
+                        className="ml-2 text-xs"
+                        style={{ color: "var(--text-muted)" }}
+                      >
                         {rf.path}
                       </span>
                     </button>
@@ -298,14 +333,25 @@ function App() {
             )}
           </div>
           {filePath && (
-            <span className="truncate text-xs text-gray-400">
+            <span
+              className="truncate text-xs"
+              style={{ color: "var(--text-muted)" }}
+            >
               {filePath}
               {isDirty && " (unsaved)"}
             </span>
           )}
         </div>
+
+        {/* External change banner */}
         {externalContent !== null && (
-          <div className="mb-2 flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+          <div
+            className="mb-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+            style={{
+              background: theme === "dark" ? "rgba(120,53,15,0.3)" : "#fffbeb",
+              color: theme === "dark" ? "#fde68a" : "#78350f",
+            }}
+          >
             <span className="flex-1">File changed externally — reload?</span>
             <button
               onClick={acceptExternalChange}
@@ -315,21 +361,33 @@ function App() {
             </button>
             <button
               onClick={dismissExternalChange}
-              className="rounded px-2 py-0.5 text-xs font-medium text-amber-600 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-100"
+              className="rounded px-2 py-0.5 text-xs font-medium text-amber-600 hover:text-amber-800"
             >
               Dismiss
             </button>
           </div>
         )}
+
+        {/* Editor */}
         <textarea
-          className="min-h-0 flex-1 resize-none rounded-lg border border-gray-300 bg-white p-4 font-mono text-sm leading-relaxed outline-none focus:border-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:focus:border-gray-500"
+          className="min-h-0 flex-1 resize-none rounded-lg border p-4 font-mono text-sm leading-relaxed outline-none"
+          style={{
+            background: "var(--bg-editor)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+            tabSize: 2,
+          }}
           value={source}
           onChange={(e) => updateSource(e.target.value)}
           spellCheck={false}
-          style={{ tabSize: 2 }}
         />
       </div>
-      <div className="w-1/2 border-l border-gray-200 dark:border-gray-800">
+
+      {/* Canvas */}
+      <div
+        className="w-1/2 border-l"
+        style={{ borderColor: "var(--border)" }}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -341,6 +399,15 @@ function App() {
         >
           <Background />
           <Controls />
+          {showMinimap && (
+            <MiniMap
+              nodeColor={minimapNodeColor}
+              position="bottom-right"
+              style={{
+                background: "var(--xy-minimap-background-color)",
+              }}
+            />
+          )}
         </ReactFlow>
       </div>
     </div>

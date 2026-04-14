@@ -1,1 +1,75 @@
 @import "tailwindcss";
+
+/* Bind Tailwind's dark: modifier to data-theme attribute instead of prefers-color-scheme */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* ── CSS variables ─────────────────────────────────────────── */
+
+[data-theme="light"] {
+  --bg-app: #ffffff;
+  --bg-pane: #ffffff;
+  --bg-editor: #ffffff;
+  --text-primary: #111827;
+  --text-muted: #9ca3af;
+  --border: #e5e7eb;
+  --btn-bg: #f3f4f6;
+  --btn-hover: #e5e7eb;
+
+  --node-default-bg: #ffffff;
+  --node-default-text: #111827;
+  --node-default-border: #d1d5db;
+  --node-highlight-bg: #3b82f6;
+  --node-highlight-text: #ffffff;
+  --node-decision-bg: #fffbeb;
+  --node-decision-text: #78350f;
+  --node-decision-border: #fbbf24;
+
+  /* React Flow overrides */
+  --xy-background-color: #f9fafb;
+  --xy-background-pattern-color: #d1d5db;
+  --xy-edge-stroke-color: #9ca3af;
+  --xy-minimap-background-color: #f3f4f6;
+  --xy-minimap-mask-background-color: rgba(0,0,0,0.06);
+  --xy-controls-button-background-color: #ffffff;
+  --xy-controls-button-border-color: #e5e7eb;
+  --xy-controls-button-color: #374151;
+  --xy-controls-button-background-color-hover: #f3f4f6;
+}
+
+[data-theme="dark"] {
+  --bg-app: #030712;
+  --bg-pane: #030712;
+  --bg-editor: #111827;
+  --text-primary: #f9fafb;
+  --text-muted: #6b7280;
+  --border: #1f2937;
+  --btn-bg: #1f2937;
+  --btn-hover: #374151;
+
+  --node-default-bg: #1f2937;
+  --node-default-text: #f9fafb;
+  --node-default-border: #374151;
+  --node-highlight-bg: #2563eb;
+  --node-highlight-text: #ffffff;
+  --node-decision-bg: #451a03;
+  --node-decision-text: #fde68a;
+  --node-decision-border: #d97706;
+
+  /* React Flow overrides */
+  --xy-background-color: #030712;
+  --xy-background-pattern-color: #1f2937;
+  --xy-edge-stroke-color: #4b5563;
+  --xy-minimap-background-color: #111827;
+  --xy-minimap-mask-background-color: rgba(0,0,0,0.4);
+  --xy-controls-button-background-color: #1f2937;
+  --xy-controls-button-border-color: #374151;
+  --xy-controls-button-color: #e5e7eb;
+  --xy-controls-button-background-color-hover: #374151;
+}
+
+/* ── App shell ─────────────────────────────────────────────── */
+
+body {
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+}
