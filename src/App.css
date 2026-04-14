@@ -73,3 +73,23 @@ body {
   background-color: var(--bg-app);
   color: var(--text-primary);
 }
+
+.mindmap-editor .cm-editor {
+  height: 100%;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.mindmap-editor .cm-content {
+  caret-color: var(--text-primary);
+}
+
+.mindmap-editor .cm-cursor,
+.mindmap-editor .cm-dropCursor {
+  border-left-color: var(--text-primary);
+}
+
+.mindmap-editor .cm-selectionBackground,
+.mindmap-editor ::selection {
+  background: color-mix(in srgb, var(--node-highlight-bg) 35%, transparent);
+}

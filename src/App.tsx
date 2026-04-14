@@ -22,6 +22,7 @@ import {
   MindmapHighlightNode,
   MindmapDecisionNode,
 } from "./components/MindmapNode";
+import { MindmapEditor } from "./components/MindmapEditor";
 import "./App.css";
 
 const EXAMPLE = `---
@@ -426,57 +427,55 @@ function App() {
     >
       {showEditor && (
         <div className="flex w-1/2 flex-col p-4">
-        {/* Toolbar */}
-        <div className="mb-2 flex items-center gap-2">
-          {filePath && (
-            <span
-              className="truncate text-xs"
-              style={{ color: "var(--text-muted)" }}
-            >
-              {filePath}
-              {isDirty && " (unsaved)"}
-            </span>
-          )}
-        </div>
+          {/* Toolbar */}
+          <div className="mb-2 flex items-center gap-2">
+            {filePath && (
+              <span
+                className="truncate text-xs"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {filePath}
+                {isDirty && " (unsaved)"}
+              </span>
+            )}
+          </div>
 
-        {/* External change banner */}
-        {externalContent !== null && (
+          {/* External change banner */}
+          {externalContent !== null && (
+            <div
+              className="mb-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+              style={{
+                background: theme === "dark" ? "rgba(120,53,15,0.3)" : "#fffbeb",
+                color: theme === "dark" ? "#fde68a" : "#78350f",
+              }}
+            >
+              <span className="flex-1">File changed externally — reload?</span>
+              <button
+                onClick={acceptExternalChange}
+                className="rounded bg-amber-500 px-2 py-0.5 text-xs font-medium text-white hover:bg-amber-600"
+              >
+                Reload
+              </button>
+              <button
+                onClick={dismissExternalChange}
+                className="rounded px-2 py-0.5 text-xs font-medium text-amber-600 hover:text-amber-800"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {/* Editor */}
           <div
-            className="mb-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+            className="min-h-0 flex-1 rounded-lg border"
             style={{
-              background: theme === "dark" ? "rgba(120,53,15,0.3)" : "#fffbeb",
-              color: theme === "dark" ? "#fde68a" : "#78350f",
+              background: "var(--bg-editor)",
+              color: "var(--text-primary)",
+              borderColor: "var(--border)",
             }}
           >
-            <span className="flex-1">File changed externally — reload?</span>
-            <button
-              onClick={acceptExternalChange}
-              className="rounded bg-amber-500 px-2 py-0.5 text-xs font-medium text-white hover:bg-amber-600"
-            >
-              Reload
-            </button>
-            <button
-              onClick={dismissExternalChange}
-              className="rounded px-2 py-0.5 text-xs font-medium text-amber-600 hover:text-amber-800"
-            >
-              Dismiss
-            </button>
+            <MindmapEditor value={source} onChange={updateSource} />
           </div>
-        )}
-
-        {/* Editor */}
-        <textarea
-          className="min-h-0 flex-1 resize-none rounded-lg border p-4 font-mono text-sm leading-relaxed outline-none"
-          style={{
-            background: "var(--bg-editor)",
-            color: "var(--text-primary)",
-            borderColor: "var(--border)",
-            tabSize: 2,
-          }}
-          value={source}
-          onChange={(e) => updateSource(e.target.value)}
-          spellCheck={false}
-        />
         </div>
       )}
 
